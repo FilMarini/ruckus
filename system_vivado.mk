@@ -152,7 +152,7 @@ endif
 ###############################################################
 
 ifndef LD_PRELOAD
-export LD_PRELOAD =
+#export LD_PRELOAD =
 endif
 
 ifndef EMBED_PROC

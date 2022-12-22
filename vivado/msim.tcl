@@ -146,7 +146,13 @@ set SimInfo [GetModelsim-QuestaName]
 set Simulator [lindex $SimInfo 0]
 set VersionNumber [lindex $SimInfo 1]
 set MSIM_PATH [lindex $SimInfo 2]
-set simLibOutDir ${VIVADO_INSTALL}/msim-${VersionNumber}
+#set simLibOutDir ${VIVADO_INSTALL}/msim-${VersionNumber}
+set vivado_version [version -short]
+if { ${Simulator} == "ModelSim" } {
+    set simLibOutDir $::env(IPBB_SIMLIB_BASE)/${vivado_version}/modelsim_${VersionNumber}
+} else {
+    set simLibOutDir $::env(IPBB_SIMLIB_BASE)/${vivado_version}/questasim_${VersionNumber}
+}
 
 #####################################################################################################
 ## Compile the Questa Simulation Library
