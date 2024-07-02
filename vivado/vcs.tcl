@@ -247,7 +247,7 @@ export_simulation -force -absolute_path -simulator vcs -include ${include} -defi
 #####################################################################################################
 
 set rogueSimPath [get_files -compile_order sources -used_in simulation {RogueTcpStream.vhd RogueTcpMemory.vhd RogueSideBand.vhd}]
-if { ${rogueSimPath} != "" } {
+if { (${rogueSimPath} != "") && ($::env(SKIP_ROGUE_SIM) != "True")} {
 
    # Set the flag true
    set rogueSimEn true
@@ -357,7 +357,7 @@ while { [eof ${in}] != 1 } {
    set line [string map ${replaceString}  ${line}]
 
    # Update the compile options (fix bug in export_simulation not including more_options properties)
-   if { [VersionCompare 2022.1] <= 0 } {
+   if { [VersionCompare 2023.1] <= 0 } {
       set line [string map [list ${vlogan_opts_old}   ${vlogan_opts_new}]   ${line}]
       set line [string map [list ${vhdlan_opts_old}   ${vhdlan_opts_new}]   ${line}]
       set line [string map [list ${vcs_elab_opts_old} ${vcs_elab_opts_new}] ${line}]
