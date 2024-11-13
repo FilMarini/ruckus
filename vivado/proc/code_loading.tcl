@@ -228,15 +228,15 @@ proc loadIpCore args {
          set fileExt [file extension $params(path)]
          if { ${fileExt} eq {.xci} ||
               ${fileExt} eq {.xcix} } {
-            # Check if file doesn't exist in project
-            if { [get_files -quiet $params(path)] == "" } {
-               # Add the IP core file
-               import_ip -quiet -srcset sources_1 $params(path)
-            }
             # Update the global list
             set strip [file rootname [file tail $params(path)]]
             set ::IP_LIST "$::IP_LIST ${strip}"
             set ::IP_FILES "$::IP_FILES $params(path)"
+            # Check if file doesn't exist in project
+            if { [get_ips ${strip}] eq ""  } {
+               # Add the IP core file
+               import_ip -srcset sources_1 $params(path)
+            }
          } else {
             puts "\n\n\n\n\n********************************************************"
             puts "loadIpCore: $params(path) does not have a \[.xci,.xcix\] file extension"
@@ -261,15 +261,15 @@ proc loadIpCore args {
          # Load all the IP core files
          if { ${list} != "" } {
             foreach pntr ${list} {
-               # Check if file doesn't exist in project
-               if { [get_files -quiet ${pntr}] == "" } {
-                  # Add the IP core file
-                  import_ip -quiet -srcset sources_1 ${pntr}
-               }
                # Update the global list
                set strip [file rootname [file tail ${pntr}]]
                set ::IP_LIST "$::IP_LIST ${strip}"
                set ::IP_FILES "$::IP_FILES ${pntr}"
+               # Check if file doesn't exist in project
+               if { [get_ips ${strip}] eq ""  } {
+                  # Add the IP core file
+                  import_ip -srcset sources_1 ${pntr}
+               }
             }
          } else {
             puts "\n\n\n\n\n********************************************************"
@@ -453,6 +453,72 @@ proc loadConstraints args {
    }
 }
 
+## Function to check if the component.xml is different for new user ZIP IP core
+## Returns True if they are different of IP not loaded yet
+proc checkComponentXml { newIpPath repoPath } {
+   # Define paths for the existing and new component.xml files
+   set ipName [file rootname [file tail $newIpPath]]
+   set oldComponentPath "${repoPath}/${ipName}/component.xml"
+   set tempComponentPath "$::env(OUT_DIR)/component.xml"
+
+   # Check if the old component.xml exists in the repository
+   if { ![file exists $oldComponentPath] } {
+      # Return TRUE if the old component.xml does not exist
+      return true
+   }
+
+   # Check if the ZIP file exists
+   if { ![file exists $newIpPath] } {
+      puts "\n\n\n\n\n********************************************************"
+      puts "checkComponentXml: ZIP file does not exist at $newIpPath"
+      puts "********************************************************\n\n\n\n\n"
+      exit -1
+   }
+
+   # Try extracting component.xml from the ZIP file
+   if {[catch {exec unzip -p $newIpPath component.xml > $tempComponentPath} result]} {
+      puts "\n\n\n\n\n********************************************************"
+      puts "checkComponentXml: Failed to extract component.xml from ZIP file. Details: $result"
+      puts "********************************************************\n\n\n\n\n"
+      exit -1
+   }
+
+   # Verify the extracted file exists
+   if { ![file exists $tempComponentPath] } {
+      puts "\n\n\n\n\n********************************************************"
+      puts "checkComponentXml: component.xml could not be found in the extracted ZIP content"
+      puts "********************************************************\n\n\n\n\n"
+      exit -1
+   }
+
+   # Read both files for comparison
+   set oldFile [open $oldComponentPath]
+   set oldContent [read $oldFile]
+   close $oldFile
+
+   set newFile [open $tempComponentPath]
+   set newContent [read $newFile]
+   close $newFile
+
+   # Clean up the temporary file
+   file delete $tempComponentPath
+
+   # Compare the content of both files
+   if { $oldContent ne $newContent } {
+
+      # Delete the old content
+      exec rm -rf  ${repoPath}/${ipName}
+      update_ip_catalog -rebuild -scan_changes
+
+      # Return TRUE if files are different
+      return true
+
+   }
+
+   # Return FALSE if files are identical
+   return false
+}
+
 ## Function to load ZIP IP cores
 proc loadZipIpCore args {
    set options {
@@ -486,10 +552,8 @@ proc loadZipIpCore args {
             set fileExt [file extension $params(path)]
             if { ${fileExt} eq {.zip} ||
                  ${fileExt} eq {.ZIP} } {
-               # Check if directory doesn't exist yet
-               set strip [file rootname [file tail $params(path)]]
-               set dirPath "$params(repo_path)/${strip}"
-               if { [file isdirectory [file rootname ${dirPath}]] == 0 } {
+               # Check the component.xml file
+               if { [checkComponentXml $params(path) $params(repo_path)] } {
                   # Add achieved .zip to repo path
                   update_ip_catalog -add_ip $params(path) -repo_path $params(repo_path)
                }
@@ -518,10 +582,8 @@ proc loadZipIpCore args {
             if { ${list} != "" } {
                # Load all the constraint files
                foreach pntr ${list} {
-                  # Check if directory doesn't exist yet
-                  set strip [file rootname [file tail ${pntr}]]
-                  set dirPath "$params(repo_path)/${strip}"
-                  if { [file isdirectory [file rootname ${dirPath}]] == 0 } {
+                  # Check the component.xml file
+                  if { [checkComponentXml ${pntr} $params(repo_path)] } {
                      # Add achieved .zip to repo path
                      update_ip_catalog -add_ip ${pntr} -repo_path $params(repo_path)
                   }
